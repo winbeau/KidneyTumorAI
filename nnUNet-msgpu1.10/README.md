@@ -6,7 +6,7 @@
 
 ```bash
 # 1）创建并激活 Conda 环境
-conda create -n ms-gpu python=3.10 -y
+conda create -n ms-gpu python=3.9 -y
 conda activate ms-gpu
 
 # 2）配置 Conda 镜像（建议开启）
