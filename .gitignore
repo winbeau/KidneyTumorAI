@@ -1,0 +1,6 @@
+# 忽略 nnUNet-msgpu1.10 下的特定文件
+nnUNet-msgpu1.10/AGENTS.md
+
+# 忽略 nnUNet-msgpu1.10 下的整个 claudedocs 目录
+nnUNet-msgpu1.10/claudedocs/
+
