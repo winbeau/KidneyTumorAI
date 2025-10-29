@@ -9,7 +9,7 @@ import numpy as np
 import requests
 from tqdm import tqdm
 
-CASE_CNT = 50
+CASE_CNT = 300
 IMAGING_URL = "https://kits19.sfo2.digitaloceanspaces.com/"
 IMAGING_NAME_TMPLT = "master_{:05d}.nii.gz"
 CHUNK_SIZE = 1000
