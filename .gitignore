@@ -1,0 +1,190 @@
+# ===================================
+# KidneyTumorAI .gitignore
+# ===================================
+
+# ===================================
+# Python
+# ===================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# pip
+pip-log.txt
+pip-delete-this-directory.txt
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# ===================================
+# Node.js / Frontend
+# ===================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# Build output
+frontend/dist/
+frontend/.output/
+frontend/.nuxt/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+frontend/.env
+frontend/.env.local
+
+# ===================================
+# IDE / Editor
+# ===================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# ===================================
+# OS Files
+# ===================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ===================================
+# nnU-Net / MindSpore Data
+# ===================================
+# 训练数据和模型权重 (文件过大)
+nnUNet_data/
+gh-kits19/data/
+
+# 临时输入输出目录
+temp_input_folder/
+temp_output_folder/
+
+# MindSpore 生成文件
+*.ckpt
+*.mindir
+*.air
+*.om
+rank_*/
+kernel_meta/
+cuda_meta/
+
+# 训练日志和图表
+*.png
+*.jpg
+*.jpeg
+!docs/*.png
+!docs/*.jpg
+!frontend/public/*.png
+!frontend/src/assets/*.png
+
+# ===================================
+# Backend Data
+# ===================================
+backend/data/uploads/
+backend/data/results/
+backend/data/temp/
+backend/data/*.db
+*.db
+*.sqlite
+*.sqlite3
+
+# ===================================
+# Logs
+# ===================================
+*.log
+logs/
+log/
+
+# ===================================
+# Temporary Files
+# ===================================
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# ===================================
+# Testing
+# ===================================
+TEST_REPORT.md
+coverage/
+.nyc_output/
+
+# ===================================
+# Documentation Build
+# ===================================
+docs/_build/
+site/
+
+# ===================================
+# Docker
+# ===================================
+.docker/
+
+# ===================================
+# Misc
+# ===================================
+*.pickle
+*.pkl
+*.npy
+*.npz
+*.h5
+*.hdf5
+
+# 保留必要的配置文件
+!.gitkeep
+!backend/data/.gitkeep

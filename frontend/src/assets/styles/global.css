@@ -1,0 +1,64 @@
+:root {
+  --kidney-color: #E74C3C;
+  --tumor-color: #3498DB;
+  --background-color: #F5F7FA;
+  --sidebar-width: 240px;
+  --header-height: 56px;
+}
+
+html, body, #app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--background-color);
+  color: #333;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* NiiVue 画布容器 */
+.niivue-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: #1a1a2e;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.niivue-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* 加载动画 */
+.loading-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
