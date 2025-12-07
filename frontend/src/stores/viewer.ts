@@ -1,26 +1,26 @@
 import { defineStore } from 'pinia'
 import { ref, shallowRef } from 'vue'
 import { Niivue } from '@niivue/niivue'
-import { SLICE_TYPES, SEGMENTATION_COLORS } from '@/utils/constants'
+import { SLICE_TYPES } from '@/utils/constants'
 
 export const useViewerStore = defineStore('viewer', () => {
   // NiiVue 实例
   const nv = shallowRef<Niivue | null>(null)
 
   // 视图状态
-  const sliceType = ref(SLICE_TYPES.MULTIPLANAR)
+  const sliceType = ref<typeof SLICE_TYPES[keyof typeof SLICE_TYPES]>(SLICE_TYPES.MULTIPLANAR)
   const overlayVisible = ref(true)
   const overlayOpacity = ref(0.6)
 
   // 当前切片索引
-  const sliceIndices = ref({
+  const sliceIndices = ref<{ axial: number; coronal: number; sagittal: number }>({
     axial: 0,
     coronal: 0,
     sagittal: 0,
   })
 
   // 体积维度
-  const dimensions = ref({ x: 0, y: 0, z: 0 })
+  const dimensions = ref<{ x: number; y: number; z: number }>({ x: 0, y: 0, z: 0 })
 
   // 加载状态
   const isLoading = ref(false)
@@ -58,16 +58,17 @@ export const useViewerStore = defineStore('viewer', () => {
       // 获取维度信息
       const vol = nv.value.volumes[0]
       if (vol) {
+        const [, x = 0, y = 0, z = 0] = vol.dims
         dimensions.value = {
-          x: vol.dims[1],
-          y: vol.dims[2],
-          z: vol.dims[3],
+          x,
+          y,
+          z,
         }
         // 设置初始切片为中间位置
         sliceIndices.value = {
-          axial: Math.floor(vol.dims[3] / 2),
-          coronal: Math.floor(vol.dims[2] / 2),
-          sagittal: Math.floor(vol.dims[1] / 2),
+          axial: Math.floor(z / 2),
+          coronal: Math.floor(y / 2),
+          sagittal: Math.floor(x / 2),
         }
       }
     } catch (e: any) {
@@ -95,7 +96,7 @@ export const useViewerStore = defineStore('viewer', () => {
   }
 
   // 设置视图类型
-  function setSliceType(type: number) {
+  function setSliceType(type: typeof SLICE_TYPES[keyof typeof SLICE_TYPES]) {
     if (!nv.value) return
     sliceType.value = type
     nv.value.setSliceType(type)

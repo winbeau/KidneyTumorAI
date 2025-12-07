@@ -20,10 +20,14 @@ export const useInferenceStore = defineStore('inference', () => {
   const error = ref<string | null>(null)
   const uploadProgress = ref(0)
 
+  const processingStatuses: InferenceStatus[] = [
+    INFERENCE_STATUS.UPLOADING,
+    INFERENCE_STATUS.QUEUED,
+    INFERENCE_STATUS.PROCESSING,
+  ]
+
   // 计算属性
-  const isProcessing = computed(() =>
-    [INFERENCE_STATUS.UPLOADING, INFERENCE_STATUS.QUEUED, INFERENCE_STATUS.PROCESSING].includes(status.value)
-  )
+  const isProcessing = computed(() => processingStatuses.includes(status.value))
 
   const isCompleted = computed(() => status.value === INFERENCE_STATUS.COMPLETED)
 

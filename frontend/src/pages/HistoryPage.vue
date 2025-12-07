@@ -10,7 +10,8 @@ import {
   useMessage,
   useDialog,
 } from 'naive-ui'
-import type { DataTableColumns } from 'naive-ui'
+import type { DataTableColumns, DataTableRowKey } from 'naive-ui'
+import { h, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getHistoryList, deleteHistoryRecord, batchDeleteHistory } from '@/api/history'
 import type { HistoryRecord } from '@/api/types'
@@ -25,7 +26,7 @@ const data = ref<HistoryRecord[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
-const selectedRowKeys = ref<string[]>([])
+const selectedRowKeys = ref<DataTableRowKey[]>([])
 
 // 加载数据
 const loadData = async () => {
@@ -151,7 +152,8 @@ const handleBatchDelete = () => {
     negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        await batchDeleteHistory(selectedRowKeys.value)
+        const ids = selectedRowKeys.value.map((key) => key.toString())
+        await batchDeleteHistory(ids)
         message.success('删除成功')
         selectedRowKeys.value = []
         loadData()
@@ -169,7 +171,7 @@ const handlePageChange = (p: number) => {
 }
 
 // 行选择
-const handleSelectionChange = (keys: string[]) => {
+const handleSelectionChange = (keys: DataTableRowKey[]) => {
   selectedRowKeys.value = keys
 }
 </script>

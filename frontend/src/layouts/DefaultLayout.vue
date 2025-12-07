@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { NLayout, NLayoutHeader, NLayoutSider, NLayoutContent, NMenu, NIcon } from 'naive-ui'
+import { NLayout, NLayoutHeader, NLayoutSider, NLayoutContent, NMenu } from 'naive-ui'
 import { useRoute, useRouter } from 'vue-router'
-import { computed, h } from 'vue'
+import { computed, h, ref } from 'vue'
 import AppHeader from '@/components/common/AppHeader.vue'
 
 const route = useRoute()
