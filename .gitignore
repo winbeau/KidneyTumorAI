@@ -106,6 +106,8 @@ desktop.ini
 # 训练数据和模型权重 (文件过大)
 nnUNet_data/
 gh-kits19/data/
+models/nnUNet/
+!models/nnUNet/.gitkeep
 
 # 临时输入输出目录
 temp_input_folder/
