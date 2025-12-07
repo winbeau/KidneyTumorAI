@@ -142,6 +142,18 @@ class InferenceService:
     def _call_nnunet_predict(self, input_dir: Path, output_dir: Path, task_id: str) -> bool:
         """调用 nnU-Net 预测脚本"""
         try:
+            # 选择 checkpoint
+            checkpoint_name = self.settings.default_checkpoint
+            model_dir = Path(self.settings.model_path)
+            if checkpoint_name == "auto":
+                checkpoint_name = "model_best"
+                fold_dir = model_dir / f"fold_{self.settings.default_fold}"
+                if fold_dir.exists():
+                    if (fold_dir / "model_best.ckpt").exists():
+                        checkpoint_name = "model_best"
+                    elif (fold_dir / "model_final_checkpoint.ckpt").exists():
+                        checkpoint_name = "model_final_checkpoint"
+
             # 构建命令
             cmd = [
                 sys.executable,
@@ -153,7 +165,7 @@ class InferenceService:
                 "-tr", self.settings.trainer_class,
                 "-p", self.settings.plans_identifier,
                 "-f", str(self.settings.default_fold),
-                "-chk", "model_best",
+                "-chk", checkpoint_name,
                 "--disable_tta",  # 禁用测试时增强以加快速度
             ]
 
@@ -162,6 +174,15 @@ class InferenceService:
             env["nnUNet_raw_data_base"] = self.settings.nnunet_raw_data_base
             env["nnUNet_preprocessed"] = self.settings.nnunet_preprocessed
             env["RESULTS_FOLDER"] = self.settings.results_folder
+
+            # 如果提供了具体模型路径，自动把 RESULTS_FOLDER 指向该模型所在的 RESULTS_FOLDER 目录
+            model_path = Path(self.settings.model_path)
+            if model_path.exists():
+                try:
+                    env["RESULTS_FOLDER"] = str(model_path.parents[3])
+                    print(f"Using RESULTS_FOLDER from model_path: {env['RESULTS_FOLDER']}")
+                except Exception as e:
+                    print(f"Failed to derive RESULTS_FOLDER from model_path: {e}")
 
             print(f"Running inference command: {' '.join(cmd)}")
 

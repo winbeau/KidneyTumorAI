@@ -1,0 +1,5 @@
+{
+  "nnUNet_raw_data_base": "../nnUNet_data/nnUNet_raw_data_base",
+  "nnUNet_preprocessed": "../nnUNet_data/nnUNet_preprocessed",
+  "RESULTS_FOLDER": "../models"
+}

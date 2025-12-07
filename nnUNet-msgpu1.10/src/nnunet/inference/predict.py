@@ -17,12 +17,12 @@
 
 import shutil
 from copy import deepcopy
-from multiprocessing import Pool
-from multiprocessing import Process, Queue
+from multiprocessing import Pool, Process, Queue
+from multiprocessing.pool import ThreadPool
 from typing import Tuple, Union, List
 
-import SimpleITK as sitk
 import numpy as np
+import SimpleITK as sitk
 from batchgenerators.augmentations.utils import resize_segmentation
 from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, isfile, join, \
     os, load_pickle, subfiles, isdir
@@ -32,6 +32,20 @@ from src.nnunet.postprocessing.connected_components import load_remove_save, loa
 from src.nnunet.training.model_restore import load_model_and_checkpoint_files
 from src.nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from src.nnunet.utilities.one_hot_encoding import to_one_hot
+
+
+def _get_pool(num_processes: int):
+    """
+    Build a process pool when possible; fall back to a thread pool if semaphores are blocked.
+    Returns None when num_processes < 2 to keep things single-threaded.
+    """
+    if num_processes is None or num_processes < 2:
+        return None
+    try:
+        return Pool(num_processes)
+    except PermissionError as exc:
+        print(f"PermissionError creating multiprocessing Pool, using ThreadPool instead: {exc}")
+        return ThreadPool(num_processes)
 
 
 def preprocess_save_to_queue(preprocess_fn, q, list_of_lists, output_files, segs_from_prev_stage, classes,
@@ -79,6 +93,27 @@ def preprocess_save_to_queue(preprocess_fn, q, list_of_lists, output_files, segs
         print("This worker has ended successfully, no errors to report")
 
 
+def _preprocess_sequential(trainer, list_of_lists, output_files, segs_from_prev_stage, classes, transpose_forward):
+    """Sequential preprocessing fallback for environments without multiprocessing semaphores."""
+    for i, l in enumerate(list_of_lists):
+        output_file = output_files[i]
+        print("preprocessing", output_file)
+        d, _, dct = trainer.preprocess_patient(l)
+        if segs_from_prev_stage[i] is not None:
+            assert isfile(segs_from_prev_stage[i]) and segs_from_prev_stage[i].endswith(".nii.gz"), \
+                "segs_from_prev_stage must point to a segmentation file"
+            seg_prev = sitk.GetArrayFromImage(sitk.ReadImage(segs_from_prev_stage[i]))
+            img = sitk.GetArrayFromImage(sitk.ReadImage(l[0]))
+            assert all([a == b for a, b in zip(seg_prev.shape, img.shape)]), \
+                "image and segmentation from previous stage don't have the same pixel array shape"
+            seg_prev = seg_prev.transpose(transpose_forward)
+            seg_reshaped = resize_segmentation(seg_prev, d.shape[1:], order=1)
+            seg_reshaped = to_one_hot(seg_reshaped, classes)
+            d = np.vstack((d, seg_reshaped)).astype(np.float32)
+        yield output_file, (d, dct)
+    print("Sequential preprocessing done.")
+
+
 def preprocess_multithreaded(trainer, list_of_lists, output_files, num_processes=2, segs_from_prev_stage=None):
     """preprocess multithrea function"""
     if segs_from_prev_stage is None:
@@ -88,14 +123,28 @@ def preprocess_multithreaded(trainer, list_of_lists, output_files, num_processes
 
     classes = list(range(1, trainer.num_classes))
     assert isinstance(trainer, nnUNetTrainer)
-    q = Queue(1)
+    transpose_forward = trainer.plans['transpose_forward']
+
+    if num_processes < 2:
+        yield from _preprocess_sequential(trainer, list_of_lists, output_files, segs_from_prev_stage, classes,
+                                          transpose_forward)
+        return
+
+    try:
+        q = Queue(1)
+    except PermissionError as exc:
+        print(f"PermissionError creating multiprocessing Queue, falling back to sequential preprocessing: {exc}")
+        yield from _preprocess_sequential(trainer, list_of_lists, output_files, segs_from_prev_stage, classes,
+                                          transpose_forward)
+        return
+
     processes = []
     for i in range(num_processes):
         pr = Process(target=preprocess_save_to_queue, args=(trainer.preprocess_patient, q,
                                                             list_of_lists[i::num_processes],
                                                             output_files[i::num_processes],
                                                             segs_from_prev_stage[i::num_processes],
-                                                            classes, trainer.plans['transpose_forward']))
+                                                            classes, transpose_forward))
         pr.start()
         processes.append(pr)
 
@@ -133,7 +182,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
 
     assert len(list_of_lists) == len(output_filenames)
     if segs_from_prev_stage is not None: assert len(segs_from_prev_stage) == len(output_filenames)
-    pool = Pool(num_threads_nifti_save)
+    pool = _get_pool(num_threads_nifti_save)
     results = []
 
     cleaned_output_files = []
@@ -236,11 +285,16 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
             np.save(output_filename[:-7] + ".npy", softmax)
             softmax = output_filename[:-7] + ".npy"
 
-        results.append(pool.starmap_async(save_segmentation_nifti_from_softmax,
-                                          ((softmax, output_filename, dct, interpolation_order, region_class_order,
-                                            None, None,
-                                            npz_file, None, force_separate_z, interpolation_order_z),)
-                                          ))
+        if pool:
+            results.append(pool.starmap_async(save_segmentation_nifti_from_softmax,
+                                              ((softmax, output_filename, dct, interpolation_order,
+                                                region_class_order, None, None, npz_file, None, force_separate_z,
+                                                interpolation_order_z),)
+                                              ))
+        else:
+            save_segmentation_nifti_from_softmax(softmax, output_filename, dct, interpolation_order,
+                                                 region_class_order, None, None, npz_file, None, force_separate_z,
+                                                 interpolation_order_z)
 
     print("inference done. Now waiting for the segmentation export to finish...")
     _ = [i.get() for i in results]
@@ -255,18 +309,23 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
             # for_which_classes stores for which of the classes everything but the largest connected component needs to be
             # removed
             for_which_classes, min_valid_obj_size = load_postprocessing(pp_file)
-            results.append(pool.starmap_async(load_remove_save,
-                                              zip(output_filenames, output_filenames,
-                                                  [for_which_classes] * len(output_filenames),
-                                                  [min_valid_obj_size] * len(output_filenames))))
-            _ = [i.get() for i in results]
+            if pool:
+                results.append(pool.starmap_async(load_remove_save,
+                                                  zip(output_filenames, output_filenames,
+                                                      [for_which_classes] * len(output_filenames),
+                                                      [min_valid_obj_size] * len(output_filenames))))
+                _ = [i.get() for i in results]
+            else:
+                for fname in output_filenames:
+                    load_remove_save(fname, fname, for_which_classes, min_valid_obj_size)
         else:
             print("WARNING! Cannot run postprocessing because the postprocessing file is missing. Make sure to run "
                   "consolidate_folds in the output folder of the model first!\nThe folder you need to run this in is "
                   "%s" % model)
 
-    pool.close()
-    pool.join()
+    if pool:
+        pool.close()
+        pool.join()
 
 
 def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_threads_preprocessing,
@@ -278,7 +337,7 @@ def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_thread
     assert len(list_of_lists) == len(output_filenames)
     if segs_from_prev_stage is not None: assert len(segs_from_prev_stage) == len(output_filenames)
 
-    pool = Pool(num_threads_nifti_save)
+    pool = _get_pool(num_threads_nifti_save)
     results = []
 
     cleaned_output_files = []
@@ -382,10 +441,14 @@ def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_thread
                                            "and is therefore unable to handle trainer classes with region_class_order"
 
         print("initializing segmentation export")
-        results.append(pool.starmap_async(save_segmentation_nifti,
-                                          ((seg, output_filename, dct, interpolation_order, force_separate_z,
-                                            interpolation_order_z),)
-                                          ))
+        if pool:
+            results.append(pool.starmap_async(save_segmentation_nifti,
+                                              ((seg, output_filename, dct, interpolation_order, force_separate_z,
+                                                interpolation_order_z),)
+                                              ))
+        else:
+            save_segmentation_nifti(seg, output_filename, dct, interpolation_order, force_separate_z,
+                                    interpolation_order_z)
 
         print("done")
 
@@ -403,18 +466,23 @@ def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_thread
             # for_which_classes stores for which of the classes everything but the largest connected component needs to be
             # removed
             for_which_classes, min_valid_obj_size = load_postprocessing(pp_file)
-            results.append(pool.starmap_async(load_remove_save,
-                                              zip(output_filenames, output_filenames,
-                                                  [for_which_classes] * len(output_filenames),
-                                                  [min_valid_obj_size] * len(output_filenames))))
-            _ = [i.get() for i in results]
+            if pool:
+                results.append(pool.starmap_async(load_remove_save,
+                                                  zip(output_filenames, output_filenames,
+                                                      [for_which_classes] * len(output_filenames),
+                                                      [min_valid_obj_size] * len(output_filenames))))
+                _ = [i.get() for i in results]
+            else:
+                for fname in output_filenames:
+                    load_remove_save(fname, fname, for_which_classes, min_valid_obj_size)
         else:
             print("WARNING! Cannot run postprocessing because the postprocessing file is missing. Make sure to run "
                   "consolidate_folds in the output folder of the model first!\nThe folder you need to run this in is "
                   "%s" % model)
 
-    pool.close()
-    pool.join()
+    if pool:
+        pool.close()
+        pool.join()
 
 
 def predict_cases_fastest(model, list_of_lists, output_filenames, folds, num_threads_preprocessing,
@@ -425,7 +493,7 @@ def predict_cases_fastest(model, list_of_lists, output_filenames, folds, num_thr
     assert len(list_of_lists) == len(output_filenames)
     if segs_from_prev_stage is not None: assert len(segs_from_prev_stage) == len(output_filenames)
 
-    pool = Pool(num_threads_nifti_save)
+    pool = _get_pool(num_threads_nifti_save)
     results = []
 
     cleaned_output_files = []
@@ -509,9 +577,12 @@ def predict_cases_fastest(model, list_of_lists, output_filenames, folds, num_thr
             seg = seg.transpose([i for i in transpose_backward])
 
         print("initializing segmentation export")
-        results.append(pool.starmap_async(save_segmentation_nifti,
-                                          ((seg, output_filename, dct, 0, None),)
-                                          ))
+        if pool:
+            results.append(pool.starmap_async(save_segmentation_nifti,
+                                              ((seg, output_filename, dct, 0, None),)
+                                              ))
+        else:
+            save_segmentation_nifti(seg, output_filename, dct, 0, None)
         print("done")
 
     print("inference done. Now waiting for the segmentation export to finish...")
@@ -527,18 +598,23 @@ def predict_cases_fastest(model, list_of_lists, output_filenames, folds, num_thr
             # for_which_classes stores for which of the classes everything but the largest connected component needs to be
             # removed
             for_which_classes, min_valid_obj_size = load_postprocessing(pp_file)
-            results.append(pool.starmap_async(load_remove_save,
-                                              zip(output_filenames, output_filenames,
-                                                  [for_which_classes] * len(output_filenames),
-                                                  [min_valid_obj_size] * len(output_filenames))))
-            _ = [i.get() for i in results]
+            if pool:
+                results.append(pool.starmap_async(load_remove_save,
+                                                  zip(output_filenames, output_filenames,
+                                                      [for_which_classes] * len(output_filenames),
+                                                      [min_valid_obj_size] * len(output_filenames))))
+                _ = [i.get() for i in results]
+            else:
+                for fname in output_filenames:
+                    load_remove_save(fname, fname, for_which_classes, min_valid_obj_size)
         else:
             print("WARNING! Cannot run postprocessing because the postprocessing file is missing. Make sure to run "
                   "consolidate_folds in the output folder of the model first!\nThe folder you need to run this in is "
                   "%s" % model)
 
-    pool.close()
-    pool.join()
+    if pool:
+        pool.close()
+        pool.join()
 
 
 def check_input_folder_and_return_caseIDs(input_folder, expected_num_modalities):
