@@ -2,9 +2,14 @@
 KidneyTumorAI 后端配置
 """
 import os
-from pathlib import Path
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+from pathlib import Path
+
+from pydantic_settings import BaseSettings
+
+# 仓库根目录和后端目录
+BASE_DIR = Path(__file__).resolve().parents[3]
+BACKEND_DIR = BASE_DIR / "backend"
 
 
 class Settings(BaseSettings):
@@ -16,22 +21,31 @@ class Settings(BaseSettings):
     port: int = 8000
 
     # 项目路径
-    base_dir: Path = Path(__file__).parent.parent.parent
-    nnunet_root: Path = Path("/home/winbeau/Projects/KidneyTumorAI/nnUNet-msgpu1.10")
-    model_path: Path = Path("/home/winbeau/Projects/KidneyTumorAI/nnUNet_data/RESULTS_FOLDER/nnUNet/3d_fullres/Task001_kits/nnUNetTrainerV2__nnUNetPlansv2.1")
+    base_dir: Path = BASE_DIR
+    backend_dir: Path = BACKEND_DIR
+    nnunet_root: Path = BASE_DIR / "nnUNet-msgpu1.10"
+    model_path: Path = (
+        BASE_DIR
+        / "nnUNet_data"
+        / "RESULTS_FOLDER"
+        / "nnUNet"
+        / "3d_fullres"
+        / "Task001_kits"
+        / "nnUNetTrainerV2__nnUNetPlansv2.1"
+    )
 
     # 数据目录
-    upload_dir: Path = Path("/home/winbeau/Projects/KidneyTumorAI/backend/data/uploads")
-    result_dir: Path = Path("/home/winbeau/Projects/KidneyTumorAI/backend/data/results")
-    temp_dir: Path = Path("/home/winbeau/Projects/KidneyTumorAI/backend/data/temp")
+    upload_dir: Path = BACKEND_DIR / "data" / "uploads"
+    result_dir: Path = BACKEND_DIR / "data" / "results"
+    temp_dir: Path = BACKEND_DIR / "data" / "temp"
 
     # nnU-Net 环境变量
-    nnunet_raw_data_base: str = "/home/winbeau/Projects/KidneyTumorAI/nnUNet_data/nnUNet_raw_data_base"
-    nnunet_preprocessed: str = "/home/winbeau/Projects/KidneyTumorAI/nnUNet_data/nnUNet_preprocessed"
-    results_folder: str = "/home/winbeau/Projects/KidneyTumorAI/nnUNet_data/RESULTS_FOLDER"
+    nnunet_raw_data_base: str = str(BASE_DIR / "nnUNet_data" / "nnUNet_raw_data_base")
+    nnunet_preprocessed: str = str(BASE_DIR / "nnUNet_data" / "nnUNet_preprocessed")
+    results_folder: str = str(BASE_DIR / "nnUNet_data" / "RESULTS_FOLDER")
 
     # 数据库
-    database_url: str = "sqlite:///./data/kidney_tumor.db"
+    database_url: str = f"sqlite:///{(BACKEND_DIR / 'data' / 'kidney_tumor.db').as_posix()}"
 
     # 推理配置
     default_fold: int = 0
@@ -45,14 +59,14 @@ class Settings(BaseSettings):
     allowed_extensions: list = [".nii", ".nii.gz"]
 
     class Config:
-        env_file = ".env"
+        env_file = str(BACKEND_DIR / ".env")
         extra = "ignore"
 
     def setup_nnunet_env(self):
         """设置 nnU-Net 环境变量"""
-        os.environ["nnUNet_raw_data_base"] = self.nnunet_raw_data_base
-        os.environ["nnUNet_preprocessed"] = self.nnunet_preprocessed
-        os.environ["RESULTS_FOLDER"] = self.results_folder
+        os.environ["nnUNet_raw_data_base"] = str(self.nnunet_raw_data_base)
+        os.environ["nnUNet_preprocessed"] = str(self.nnunet_preprocessed)
+        os.environ["RESULTS_FOLDER"] = str(self.results_folder)
 
     def ensure_dirs(self):
         """确保必要目录存在"""
