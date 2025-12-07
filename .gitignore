@@ -141,6 +141,7 @@ backend/data/*.db
 *.db
 *.sqlite
 *.sqlite3
+input_dir/
 
 # ===================================
 # Logs
