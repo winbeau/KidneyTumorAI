@@ -46,6 +46,10 @@ app.include_router(inference.router, prefix="/api/v1")
 app.include_router(history.router, prefix="/api/v1")
 app.include_router(files.router)  # 文件路由不加 api/v1 前缀
 
+# 兼容部分反向代理剥掉 /api 前缀的场景，提供 /v1* 备用入口
+app.include_router(inference.router, prefix="/v1")
+app.include_router(history.router, prefix="/v1")
+
 
 # 健康检查
 @app.get("/health")
