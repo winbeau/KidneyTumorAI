@@ -15,6 +15,7 @@ pydantic-settings>=2.1.0
 
 # 医学影像处理
 nibabel>=5.2.0
+scikit-image>=0.19.0
 numpy>=1.24.3
 
 # 工具

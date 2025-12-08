@@ -90,10 +90,10 @@ class InferenceService:
             self._update_task_status(task_id, TaskStatus.PROCESSING, progress=20, message="正在执行分割推理...")
 
             # 调用 nnU-Net 推理
-            success = self._call_nnunet_predict(input_dir, output_dir, task_id)
+            success, error_msg = self._call_nnunet_predict(input_dir, output_dir, task_id)
 
             if not success:
-                raise RuntimeError("nnU-Net 推理失败")
+                raise RuntimeError(error_msg or "nnU-Net 推理失败")
 
             self._update_task_status(task_id, TaskStatus.PROCESSING, progress=80, message="正在处理分割结果...")
 
@@ -139,7 +139,7 @@ class InferenceService:
                 message=f"推理失败: {str(e)}"
             )
 
-    def _call_nnunet_predict(self, input_dir: Path, output_dir: Path, task_id: str) -> bool:
+    def _call_nnunet_predict(self, input_dir: Path, output_dir: Path, task_id: str) -> Tuple[bool, str]:
         """调用 nnU-Net 预测脚本"""
         try:
             # 选择 checkpoint
@@ -197,18 +197,20 @@ class InferenceService:
             )
 
             if result.returncode != 0:
+                err_msg = result.stderr.strip() or "nnU-Net 推理失败"
                 print(f"nnU-Net stderr: {result.stderr}")
-                return False
+                return False, err_msg
 
             print(f"nnU-Net stdout: {result.stdout}")
-            return True
+            return True, ""
 
         except subprocess.TimeoutExpired:
             print("nnU-Net inference timeout")
-            return False
+            return False, "nnU-Net inference timeout"
         except Exception as e:
-            print(f"nnU-Net call error: {e}")
-            return False
+            err_msg = f"nnU-Net call error: {e}"
+            print(err_msg)
+            return False, err_msg
 
     def _calculate_volumes(self, seg_path: Path, orig_path: Path) -> Tuple[float, float]:
         """计算肾脏和肿瘤体积 (mm³)"""
