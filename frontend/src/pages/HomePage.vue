@@ -15,11 +15,17 @@ import {
 import type { UploadFileInfo } from 'naive-ui'
 import { useInferenceStore } from '@/stores/inference'
 import { useRouter } from 'vue-router'
+import { computed } from 'vue'
 import { UPLOAD_CONFIG, INFERENCE_STATUS } from '@/utils/constants'
 
 const router = useRouter()
 const message = useMessage()
 const inferenceStore = useInferenceStore()
+const maxSizeText = computed(() => {
+  const gb = UPLOAD_CONFIG.maxSize / 1024 / 1024 / 1024
+  if (gb >= 1) return `${gb.toFixed(gb % 1 === 0 ? 0 : 1)}GB`
+  return `${(UPLOAD_CONFIG.maxSize / 1024 / 1024).toFixed(0)}MB`
+})
 
 // 文件验证
 const handleBeforeUpload = (data: { file: UploadFileInfo }) => {
@@ -35,7 +41,7 @@ const handleBeforeUpload = (data: { file: UploadFileInfo }) => {
 
   // 检查文件大小
   if (file.size > UPLOAD_CONFIG.maxSize) {
-    message.error(`文件大小不能超过 ${UPLOAD_CONFIG.maxSize / 1024 / 1024}MB`)
+    message.error(`文件大小不能超过 ${maxSizeText.value}`)
     return false
   }
 
@@ -48,10 +54,19 @@ const handleFileChange = async (options: { file: UploadFileInfo; fileList: Uploa
   if (!file) return
 
   try {
-    await inferenceStore.startInference(file)
-    message.success('任务已提交，正在处理中...')
+    await inferenceStore.uploadFile(file)
+    message.success('文件上传成功，请点击“开始推理”')
   } catch (e: any) {
     message.error(e.message || '上传失败')
+  }
+}
+
+const startManualInference = async () => {
+  try {
+    await inferenceStore.startInference()
+    message.success('任务已开始')
+  } catch (e: any) {
+    message.error(e.message || '启动推理失败')
   }
 }
 
@@ -104,11 +119,37 @@ const formatVolume = (mm3: number) => {
               <div class="i-carbon-cloud-upload text-5xl text-gray-400 mx-auto mb-4" />
               <p class="text-lg mb-2">点击或拖拽文件到此区域上传</p>
               <p class="text-gray-400 text-sm">
-                支持 NIfTI 格式 (.nii, .nii.gz)，最大 500MB
+                支持 NIfTI 格式 (.nii, .nii.gz)，最大 {{ maxSizeText }}
               </p>
             </div>
           </NUploadDragger>
         </NUpload>
+      </template>
+
+      <!-- 上传完成，等待手动启动 -->
+      <template v-else-if="inferenceStore.isWaitingStart">
+        <div class="py-6 text-center space-y-4">
+          <div class="i-carbon-checkmark text-5xl text-green-500 mx-auto" />
+          <p class="text-lg font-medium">上传完成，准备开始推理</p>
+          <p class="text-gray-500">
+            {{ inferenceStore.currentFile?.name }}
+          </p>
+          <NProgress
+            type="line"
+            :percentage="100"
+            :status="'success'"
+            :indicator-placement="'inside'"
+            class="max-w-md mx-auto"
+          />
+          <NSpace justify="center">
+            <NButton type="primary" size="large" @click="startManualInference">
+              开始推理
+            </NButton>
+            <NButton size="large" @click="inferenceStore.reset">
+              取消
+            </NButton>
+          </NSpace>
+        </div>
       </template>
 
       <!-- 处理中状态 -->

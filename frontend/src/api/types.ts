@@ -14,12 +14,18 @@ export interface InferenceStartResponse {
   estimatedTime: number
 }
 
+export interface StatsInfo {
+  kidneyVolume?: number    // mm³
+  tumorVolume?: number     // mm³
+  processingTime?: number  // seconds
+}
+
 // 推理状态响应
 export interface InferenceStatusResponse {
   taskId: string
   status: 'queued' | 'processing' | 'completed' | 'failed'
   progress: number
-  message: string
+  message?: string
 }
 
 // 推理结果响应
@@ -27,11 +33,7 @@ export interface InferenceResultResponse {
   taskId: string
   originalUrl: string
   segmentationUrl: string
-  stats: {
-    kidneyVolume: number    // mm³
-    tumorVolume: number     // mm³
-    processingTime: number  // seconds
-  }
+  stats: StatsInfo
 }
 
 // 历史记录
@@ -39,12 +41,8 @@ export interface HistoryRecord {
   id: string
   filename: string
   uploadTime: string
-  status: 'completed' | 'failed'
-  stats?: {
-    kidneyVolume: number
-    tumorVolume: number
-    tumorKidneyRatio: number
-  }
+  status: 'queued' | 'processing' | 'completed' | 'failed'
+  stats?: StatsInfo
   originalUrl: string
   segmentationUrl: string
   thumbnailUrl?: string

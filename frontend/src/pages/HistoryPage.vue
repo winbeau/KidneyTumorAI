@@ -14,6 +14,7 @@ import type { DataTableColumns, DataTableRowKey } from 'naive-ui'
 import { h, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getHistoryList, deleteHistoryRecord, batchDeleteHistory } from '@/api/history'
+import { startInferenceTask } from '@/api/inference'
 import type { HistoryRecord } from '@/api/types'
 
 const router = useRouter()
@@ -79,10 +80,14 @@ const columns: DataTableColumns<HistoryRecord> = [
     key: 'status',
     width: 100,
     render: (row) => {
-      return h(NTag, {
-        type: row.status === 'completed' ? 'success' : 'error',
-        size: 'small',
-      }, () => row.status === 'completed' ? '成功' : '失败')
+      const map: Record<string, { type: 'default' | 'success' | 'warning' | 'error', label: string }> = {
+        completed: { type: 'success', label: '成功' },
+        processing: { type: 'warning', label: '处理中' },
+        queued: { type: 'warning', label: '待开始' },
+        failed: { type: 'error', label: '失败' },
+      }
+      const { type, label } = map[row.status] || { type: 'default', label: row.status }
+      return h(NTag, { type, size: 'small' }, () => label)
     },
   },
   {
@@ -100,24 +105,32 @@ const columns: DataTableColumns<HistoryRecord> = [
   {
     title: '操作',
     key: 'actions',
-    width: 150,
+    width: 180,
     fixed: 'right',
     render: (row) => {
-      return h(NSpace, { size: 'small' }, () => [
-        h(NButton, {
+      const actions = []
+      if (row.status === 'queued') {
+        actions.push(h(NButton, {
           size: 'small',
           type: 'primary',
           ghost: true,
-          disabled: row.status !== 'completed',
-          onClick: () => viewResult(row.id),
-        }, () => '查看'),
-        h(NPopconfirm, {
-          onPositiveClick: () => handleDelete(row.id),
-        }, {
-          trigger: () => h(NButton, { size: 'small', type: 'error', ghost: true }, () => '删除'),
-          default: () => '确定删除此记录？',
-        }),
-      ])
+          onClick: () => handleStart(row.id),
+        }, () => '开始推理'))
+      }
+      actions.push(h(NButton, {
+        size: 'small',
+        type: 'primary',
+        ghost: true,
+        disabled: row.status !== 'completed',
+        onClick: () => viewResult(row.id),
+      }, () => '查看'))
+      actions.push(h(NPopconfirm, {
+        onPositiveClick: () => handleDelete(row.id),
+      }, {
+        trigger: () => h(NButton, { size: 'small', type: 'error', ghost: true }, () => '删除'),
+        default: () => '确定删除此记录？',
+      }))
+      return h(NSpace, { size: 'small' }, () => actions)
     },
   },
 ]
@@ -125,6 +138,17 @@ const columns: DataTableColumns<HistoryRecord> = [
 // 查看结果
 const viewResult = (id: string) => {
   router.push(`/viewer/${id}`)
+}
+
+// 启动推理
+const handleStart = async (id: string) => {
+  try {
+    await startInferenceTask(id)
+    message.success('已开始推理')
+    loadData()
+  } catch (e: any) {
+    message.error('启动失败: ' + e.message)
+  }
 }
 
 // 删除记录
@@ -213,7 +237,7 @@ const handleSelectionChange = (keys: DataTableRowKey[]) => {
         showSizePicker: true,
         pageSizes: [10, 20, 50],
         onChange: handlePageChange,
-        onUpdatePageSize: (size: number) => { pageSize = size; loadData() },
+        onUpdatePageSize: (size: number) => { pageSize.value = size; page.value = 1; loadData() },
       }"
       @update:checked-row-keys="handleSelectionChange"
     >

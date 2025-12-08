@@ -7,9 +7,9 @@ import type {
 import { UPLOAD_TIMEOUT_MS } from '@/utils/constants'
 
 /**
- * 开始推理任务
+ * 上传文件（不立即开始推理）
  */
-export function startInference(
+export function uploadInferenceFile(
   file: File,
   model: string = '3d_fullres',
   onProgress?: (percent: number) => void
@@ -18,7 +18,7 @@ export function startInference(
   formData.append('file', file)
   formData.append('model', model)
 
-  return http.post('/inference/start', formData, {
+  return http.post('/inference/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: UPLOAD_TIMEOUT_MS,
     onUploadProgress: (progressEvent) => {
@@ -28,6 +28,25 @@ export function startInference(
       }
     },
   })
+}
+
+/**
+ * 启动已上传任务的推理
+ */
+export function startInferenceTask(taskId: string): Promise<InferenceStartResponse> {
+  return http.post(`/inference/${taskId}/start`)
+}
+
+/**
+ * 兼容函数：上传后立即启动推理
+ */
+export async function startInference(
+  file: File,
+  model: string = '3d_fullres',
+  onProgress?: (percent: number) => void
+): Promise<InferenceStartResponse> {
+  const uploadRes = await uploadInferenceFile(file, model, onProgress)
+  return startInferenceTask(uploadRes.taskId)
 }
 
 /**

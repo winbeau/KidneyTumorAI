@@ -52,6 +52,8 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 | 方法 | 路径 | 描述 |
 |------|------|------|
+| POST | `/api/v1/inference/upload` | 上传文件，创建任务但不启动推理 |
+| POST | `/api/v1/inference/{task_id}/start` | 启动已有任务的推理 |
 | POST | `/api/v1/inference/start` | 上传文件并开始推理 |
 | GET | `/api/v1/inference/{task_id}/status` | 查询推理状态 |
 | GET | `/api/v1/inference/{task_id}/result` | 获取推理结果 |

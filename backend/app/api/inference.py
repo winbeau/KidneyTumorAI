@@ -40,6 +40,60 @@ async def _save_upload_file(file: UploadFile, dest: Path, max_size: int) -> int:
     return total
 
 
+@router.post("/upload", response_model=InferenceStartResponse)
+async def upload_file_only(
+    file: UploadFile = File(...),
+    model: str = Query(default="3d_fullres", description="模型类型"),
+):
+    """
+    仅上传文件并创建任务，不立即启动推理
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="文件名不能为空")
+
+    is_valid = any(file.filename.endswith(ext) for ext in settings.allowed_extensions)
+    if not is_valid:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的文件格式，请上传 {settings.allowed_extensions}"
+        )
+
+    temp_path = settings.temp_dir / file.filename
+    try:
+        await _save_upload_file(file, temp_path, settings.max_upload_size)
+        task_id = inference_service.create_task(file.filename, temp_path)
+        return InferenceStartResponse(
+            taskId=task_id,
+            status="queued",
+            estimatedTime=0,
+        )
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+
+
+@router.post("/{task_id}/start", response_model=InferenceStartResponse)
+async def start_inference_task(task_id: str):
+    """
+    根据已上传的任务 ID 启动推理
+    """
+    task = inference_service.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    if task.status == TaskStatus.PROCESSING:
+        raise HTTPException(status_code=400, detail="任务正在处理中")
+
+    # 重新标记排队状态
+    inference_service._update_task_status(task_id, TaskStatus.QUEUED, progress=0, message="排队中...")
+    inference_service.start_inference(task_id)
+    return InferenceStartResponse(
+        taskId=task_id,
+        status="queued",
+        estimatedTime=120,
+    )
+
+
 @router.post("/start", response_model=InferenceStartResponse)
 async def start_inference(
     file: UploadFile = File(...),
