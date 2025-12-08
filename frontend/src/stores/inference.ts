@@ -21,6 +21,8 @@ export const useInferenceStore = defineStore('inference', () => {
   const error = ref<string | null>(null)
   const uploadProgress = ref(0)
   const waitingStart = ref(false)
+  const statusMessage = ref<string | null>(null)
+  const elapsedSeconds = ref(0)
 
   const processingStatuses: InferenceStatus[] = [
     INFERENCE_STATUS.UPLOADING,
@@ -54,6 +56,31 @@ export const useInferenceStore = defineStore('inference', () => {
 
   // 轮询定时器
   let pollTimer: ReturnType<typeof setInterval> | null = null
+  let elapsedTimer: ReturnType<typeof setInterval> | null = null
+
+  const fallbackMessages: Record<InferenceStatus, string> = {
+    [INFERENCE_STATUS.IDLE]: '等待上传',
+    [INFERENCE_STATUS.UPLOADING]: '上传中',
+    [INFERENCE_STATUS.QUEUED]: '排队中',
+    [INFERENCE_STATUS.PROCESSING]: '分割处理中',
+    [INFERENCE_STATUS.COMPLETED]: '处理完成',
+    [INFERENCE_STATUS.FAILED]: '处理失败',
+  }
+
+  const startElapsedTimer = () => {
+    if (elapsedTimer) clearInterval(elapsedTimer)
+    elapsedSeconds.value = 0
+    elapsedTimer = setInterval(() => {
+      elapsedSeconds.value += 1
+    }, 1000)
+  }
+
+  const stopElapsedTimer = () => {
+    if (elapsedTimer) {
+      clearInterval(elapsedTimer)
+      elapsedTimer = null
+    }
+  }
 
   // 上传文件但不立即启动推理
   async function uploadFile(file: File) {
@@ -61,6 +88,7 @@ export const useInferenceStore = defineStore('inference', () => {
       reset()
       currentFile.value = file
       status.value = INFERENCE_STATUS.UPLOADING
+      statusMessage.value = '文件上传中...'
 
       // 上传文件并开始推理
       const response = await uploadInferenceFile(file, '3d_fullres', (percent) => {
@@ -70,9 +98,11 @@ export const useInferenceStore = defineStore('inference', () => {
       taskId.value = response.taskId
       status.value = INFERENCE_STATUS.QUEUED
       waitingStart.value = true
+      statusMessage.value = '上传完成，等待开始推理'
     } catch (e: any) {
       status.value = INFERENCE_STATUS.FAILED
       error.value = e.message || '启动推理失败'
+      statusMessage.value = error.value
       throw e
     }
   }
@@ -86,11 +116,15 @@ export const useInferenceStore = defineStore('inference', () => {
       waitingStart.value = false
       status.value = INFERENCE_STATUS.QUEUED
       startPolling()
+      startElapsedTimer()
+      statusMessage.value = '排队中...'
       await apiStartInferenceTask(taskId.value)
     } catch (e: any) {
       status.value = INFERENCE_STATUS.FAILED
       error.value = e.message || '启动推理失败'
+      statusMessage.value = error.value
       stopPolling()
+      stopElapsedTimer()
       throw e
     }
   }
@@ -105,18 +139,23 @@ export const useInferenceStore = defineStore('inference', () => {
       try {
         const statusResponse = await getInferenceStatus(taskId.value)
         progress.value = statusResponse.progress
+        statusMessage.value = statusResponse.message || fallbackMessages[statusResponse.status as InferenceStatus]
 
         if (statusResponse.status === 'processing') {
           status.value = INFERENCE_STATUS.PROCESSING
         } else if (statusResponse.status === 'completed') {
           stopPolling()
+          stopElapsedTimer()
           status.value = INFERENCE_STATUS.COMPLETED
+          statusMessage.value = statusResponse.message || '分割完成'
           // 获取结果
           result.value = await getInferenceResult(taskId.value)
         } else if (statusResponse.status === 'failed') {
           stopPolling()
+          stopElapsedTimer()
           status.value = INFERENCE_STATUS.FAILED
           error.value = statusResponse.message || '推理失败'
+          statusMessage.value = error.value
         }
       } catch (e: any) {
         console.error('Poll error:', e)
@@ -155,6 +194,9 @@ export const useInferenceStore = defineStore('inference', () => {
     taskId.value = null
     result.value = null
     error.value = null
+    statusMessage.value = null
+    elapsedSeconds.value = 0
+    stopElapsedTimer()
   }
 
   return {
@@ -167,6 +209,8 @@ export const useInferenceStore = defineStore('inference', () => {
     result,
     error,
     waitingStart,
+    statusMessage,
+    elapsedSeconds,
     // 计算属性
     isProcessing,
     isWaitingStart,

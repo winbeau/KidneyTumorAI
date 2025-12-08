@@ -95,6 +95,15 @@ const formatProcessingTime = (seconds?: number) => {
   if (seconds === undefined || seconds === null) return '-'
   return `${seconds.toFixed(1)}s`
 }
+
+const formatSeconds = (secs: number) => {
+  const m = Math.floor(secs / 60)
+  const s = secs % 60
+  if (m > 0) {
+    return `${m}分${s.toString().padStart(2, '0')}秒`
+  }
+  return `${s}秒`
+}
 </script>
 
 <template>
@@ -163,6 +172,12 @@ const formatProcessingTime = (seconds?: number) => {
         <div class="py-8 text-center">
           <div class="i-carbon-rotate-360 text-5xl text-blue-500 mx-auto mb-4 loading-spin" />
           <p class="text-lg mb-2">{{ inferenceStore.statusText }}</p>
+          <p class="text-gray-500 mb-1">
+            阶段：{{ inferenceStore.statusMessage || '处理中' }}
+          </p>
+          <p class="text-gray-400 text-sm mb-4">
+            已用时：{{ formatSeconds(inferenceStore.elapsedSeconds) }}
+          </p>
           <p class="text-gray-500 mb-4">{{ inferenceStore.currentFile?.name }}</p>
 
           <NProgress

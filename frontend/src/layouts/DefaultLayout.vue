@@ -84,7 +84,7 @@ const collapsed = ref(false)
         <AppHeader />
       </NLayoutHeader>
 
-      <NLayoutContent class="p-4 bg-gray-50 dark:bg-gray-800" content-style="height: calc(100vh - 56px); overflow: auto;">
+      <NLayoutContent class="p-4 bg-gray-50 dark:bg-gray-800" content-style="min-height: calc(100vh - 56px);">
         <RouterView v-slot="{ Component }">
           <Transition name="fade" mode="out-in">
             <component :is="Component" />
