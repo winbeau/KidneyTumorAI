@@ -42,6 +42,7 @@ body {
 .niivue-container {
   width: 100%;
   height: 100%;
+  min-height: 600px;
   position: relative;
   background: #1a1a2e;
   border-radius: 8px;
@@ -56,6 +57,75 @@ body {
 /* 加载动画 */
 .loading-spin {
   animation: spin 1s linear infinite;
+}
+
+/* 按钮样式优化：修复白色背景问题 */
+
+/* Primary 按钮 - 所有状态 (绿色系) */
+.n-button.n-button--primary-type {
+  background-color: #10b981 !important;
+  border-color: #10b981 !important;
+  color: #fff !important;
+}
+
+.n-button.n-button--primary-type:not(.n-button--disabled):hover,
+.n-button.n-button--primary-type:not(.n-button--disabled):focus {
+  background-color: #059669 !important;
+  border-color: #059669 !important;
+  color: #fff !important;
+}
+
+.n-button.n-button--primary-type:not(.n-button--disabled):active {
+  background-color: #047857 !important;
+  border-color: #047857 !important;
+  color: #fff !important;
+}
+
+.n-button.n-button--primary-type .n-button__content,
+.n-button.n-button--primary-type .n-button__icon {
+  color: #fff !important;
+}
+
+/* Default 按钮 - 所有状态 */
+.n-button.n-button--default-type {
+  background-color: #fff !important;
+  border-color: #e5e7eb !important;
+  color: #374151 !important;
+}
+
+.n-button.n-button--default-type:not(.n-button--disabled):hover,
+.n-button.n-button--default-type:not(.n-button--disabled):focus {
+  background-color: #f9fafb !important;
+  border-color: #10b981 !important;
+  color: #10b981 !important;
+}
+
+.n-button.n-button--default-type:not(.n-button--disabled):active {
+  background-color: #f3f4f6 !important;
+  border-color: #059669 !important;
+  color: #059669 !important;
+}
+
+.n-button.n-button--default-type .n-button__content {
+  color: inherit !important;
+}
+
+/* 按钮组内的按钮：平滑过渡 */
+.n-button-group .n-button {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease !important;
+}
+
+/* Error ghost 按钮 */
+.n-button.n-button--error-type.n-button--ghost {
+  background-color: transparent !important;
+  border-color: #ef4444 !important;
+  color: #ef4444 !important;
+}
+
+.n-button.n-button--error-type.n-button--ghost:not(.n-button--disabled):hover {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  border-color: #dc2626 !important;
+  color: #dc2626 !important;
 }
 
 @keyframes spin {
