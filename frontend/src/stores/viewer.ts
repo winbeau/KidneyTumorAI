@@ -25,6 +25,7 @@ export const useViewerStore = defineStore('viewer', () => {
   // 加载状态
   const isLoading = ref(false)
   const loadError = ref<string | null>(null)
+  const downloadProgress = ref<{ original: number; segmentation: number }>({ original: 0, segmentation: 0 })
 
   // 初始化 NiiVue
   async function initNiiVue(canvas: HTMLCanvasElement) {
@@ -45,26 +46,64 @@ export const useViewerStore = defineStore('viewer', () => {
     }
   }
 
-  // 加载原始影像
-  async function loadVolume(url: string) {
-    if (!nv.value) throw new Error('NiiVue not initialized')
+  async function fetchNiftiWithProgress(url: string, key: 'original' | 'segmentation'): Promise<ArrayBuffer> {
+    const resp = await fetch(url)
+    if (!resp.ok || !resp.body) {
+      throw new Error(`下载失败: ${resp.status} ${resp.statusText}`)
+    }
+    const reader = resp.body.getReader()
+    const total = Number(resp.headers.get('Content-Length') || 0)
+    const chunks: Uint8Array[] = []
+    let received = 0
 
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value) {
+        chunks.push(value)
+        received += value.length
+        if (total > 0) {
+          downloadProgress.value[key] = Math.min(100, Math.round((received / total) * 100))
+        }
+      }
+    }
+
+    const size = chunks.reduce((acc, c) => acc + c.length, 0)
+    const buffer = new Uint8Array(size)
+    let offset = 0
+    for (const c of chunks) {
+      buffer.set(c, offset)
+      offset += c.length
+    }
+    downloadProgress.value[key] = 100
+    return buffer.buffer
+  }
+
+  // 并行加载原始影像与分割
+  async function loadCase(originalUrl: string, segmentationUrl: string) {
+    if (!nv.value) throw new Error('NiiVue not initialized')
     isLoading.value = true
     loadError.value = null
+    downloadProgress.value = { original: 0, segmentation: 0 }
 
     try {
-      await nv.value.loadVolumes([{ url }])
+      const [origBuffer, segBuffer] = await Promise.all([
+        fetchNiftiWithProgress(originalUrl, 'original'),
+        fetchNiftiWithProgress(segmentationUrl, 'segmentation'),
+      ])
+
+      const volumes: any[] = [
+        { url: originalUrl, data: origBuffer },
+        { url: segmentationUrl, data: segBuffer, colormap: 'actc', opacity: overlayOpacity.value },
+      ]
+
+      await nv.value.loadVolumes(volumes)
 
       // 获取维度信息
       const vol = nv.value.volumes[0]
       if (vol) {
         const [, x = 0, y = 0, z = 0] = vol.dims
-        dimensions.value = {
-          x,
-          y,
-          z,
-        }
-        // 设置初始切片为中间位置
+        dimensions.value = { x, y, z }
         sliceIndices.value = {
           axial: Math.floor(z / 2),
           coronal: Math.floor(y / 2),
@@ -76,22 +115,6 @@ export const useViewerStore = defineStore('viewer', () => {
       throw e
     } finally {
       isLoading.value = false
-    }
-  }
-
-  // 加载分割叠加层
-  async function loadOverlay(url: string) {
-    if (!nv.value) throw new Error('NiiVue not initialized')
-
-    try {
-      await nv.value.loadVolumes([{
-        url,
-        colormap: 'actc', // 使用内置 colormap，后续可自定义
-        opacity: overlayOpacity.value,
-      }])
-    } catch (e: any) {
-      console.error('Load overlay error:', e)
-      throw e
     }
   }
 
@@ -158,9 +181,9 @@ export const useViewerStore = defineStore('viewer', () => {
     dimensions,
     isLoading,
     loadError,
+    downloadProgress,
     initNiiVue,
-    loadVolume,
-    loadOverlay,
+    loadCase,
     setSliceType,
     setOverlayOpacity,
     toggleOverlay,

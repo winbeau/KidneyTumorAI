@@ -33,8 +33,7 @@ onMounted(async () => {
       stats.value = result.stats
 
       // 加载原始影像和分割结果
-      await viewerStore.loadVolume(result.originalUrl)
-      await viewerStore.loadOverlay(result.segmentationUrl)
+      await viewerStore.loadCase(result.originalUrl, result.segmentationUrl)
     }
 
     isInitializing.value = false
@@ -147,7 +146,13 @@ const downloadScreenshot = async () => {
           <div class="niivue-container h-full relative">
             <!-- 加载中 -->
             <div v-if="isInitializing" class="absolute inset-0 flex-center bg-gray-900">
-              <NSpin size="large" />
+              <div class="space-y-3 text-center text-gray-200">
+                <NSpin size="large" />
+                <div class="text-sm">下载影像中...</div>
+                <div class="text-xs">
+                  原始 {{ viewerStore.downloadProgress.original }}% / 分割 {{ viewerStore.downloadProgress.segmentation }}%
+                </div>
+              </div>
             </div>
 
             <!-- 错误提示 -->

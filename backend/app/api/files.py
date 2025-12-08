@@ -34,4 +34,7 @@ async def download_file(task_id: str, filename: str):
         path=str(file_path),
         filename=filename,
         media_type="application/gzip",
+        headers={
+            "Cache-Control": "public, max-age=86400, immutable",
+        },
     )

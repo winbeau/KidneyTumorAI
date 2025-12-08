@@ -68,9 +68,10 @@ export const useInferenceStore = defineStore('inference', () => {
     [INFERENCE_STATUS.FAILED]: '处理失败',
   }
 
-  const startElapsedTimer = () => {
+  const startElapsedTimer = (reset = false) => {
+    if (elapsedTimer && !reset) return
     if (elapsedTimer) clearInterval(elapsedTimer)
-    elapsedSeconds.value = 0
+    if (reset) elapsedSeconds.value = 0
     elapsedTimer = setInterval(() => {
       elapsedSeconds.value += 1
     }, 1000)
@@ -90,6 +91,7 @@ export const useInferenceStore = defineStore('inference', () => {
       currentFile.value = file
       status.value = INFERENCE_STATUS.UPLOADING
       statusMessage.value = '文件上传中...'
+      startElapsedTimer(true)
 
       // 上传文件并开始推理
       const response = await uploadInferenceFile(file, '3d_fullres', (percent) => {
@@ -119,7 +121,7 @@ export const useInferenceStore = defineStore('inference', () => {
       error.value = null
       result.value = null
       startPolling()
-      startElapsedTimer()
+      startElapsedTimer(false)
       statusMessage.value = '排队中...'
       await apiStartInferenceTask(taskId.value)
     } catch (e: any) {
