@@ -26,6 +26,7 @@ export const useViewerStore = defineStore('viewer', () => {
   const isLoading = ref(false)
   const loadError = ref<string | null>(null)
   const downloadProgress = ref<{ original: number; segmentation: number }>({ original: 0, segmentation: 0 })
+  const objectUrls = ref<string[]>([])
 
   // 初始化 NiiVue
   async function initNiiVue(canvas: HTMLCanvasElement) {
@@ -92,9 +93,14 @@ export const useViewerStore = defineStore('viewer', () => {
         fetchNiftiWithProgress(segmentationUrl, 'segmentation'),
       ])
 
+      // 使用 Blob URL 让 NiiVue 以 URL 方式加载，兼容当前版本类型定义
+      const origUrlObj = URL.createObjectURL(new Blob([origBuffer]))
+      const segUrlObj = URL.createObjectURL(new Blob([segBuffer]))
+      objectUrls.value = [origUrlObj, segUrlObj]
+
       const volumes: any[] = [
-        { url: originalUrl, data: origBuffer },
-        { url: segmentationUrl, data: segBuffer, colormap: 'actc', opacity: overlayOpacity.value },
+        { url: origUrlObj },
+        { url: segUrlObj, colormap: 'actc', opacity: overlayOpacity.value },
       ]
 
       await nv.value.loadVolumes(volumes)
@@ -170,6 +176,8 @@ export const useViewerStore = defineStore('viewer', () => {
     if (nv.value) {
       nv.value = null
     }
+    objectUrls.value.forEach((u) => URL.revokeObjectURL(u))
+    objectUrls.value = []
   }
 
   return {
