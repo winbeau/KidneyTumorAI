@@ -4,6 +4,7 @@ import type {
   InferenceStatusResponse,
   InferenceResultResponse,
 } from './types'
+import { UPLOAD_TIMEOUT_MS } from '@/utils/constants'
 
 /**
  * 开始推理任务
@@ -19,6 +20,7 @@ export function startInference(
 
   return http.post('/inference/start', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: UPLOAD_TIMEOUT_MS,
     onUploadProgress: (progressEvent) => {
       if (progressEvent.total && onProgress) {
         const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total)

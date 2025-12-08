@@ -1,6 +1,6 @@
 import axios from 'axios'
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
-import { API_BASE_URL } from '@/utils/constants'
+import { API_BASE_URL, UPLOAD_TIMEOUT_MS } from '@/utils/constants'
 
 // 创建 axios 实例
 const instance: AxiosInstance = axios.create({
@@ -61,6 +61,7 @@ export const http = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: UPLOAD_TIMEOUT_MS,
       onUploadProgress: (progressEvent) => {
         if (progressEvent.total && onProgress) {
           const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total)

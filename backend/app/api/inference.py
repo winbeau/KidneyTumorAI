@@ -20,6 +20,26 @@ router = APIRouter(prefix="/inference", tags=["推理"])
 settings = get_settings()
 
 
+async def _save_upload_file(file: UploadFile, dest: Path, max_size: int) -> int:
+    """逐块写入上传文件，避免一次性读入内存"""
+    chunk_size = 8 * 1024 * 1024  # 8MB
+    total = 0
+    with open(dest, "wb") as f:
+        while True:
+            chunk = await file.read(chunk_size)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_size:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"文件大小超过限制 ({max_size // 1024 // 1024}MB)"
+                )
+            f.write(chunk)
+    await file.seek(0)
+    return total
+
+
 @router.post("/start", response_model=InferenceStartResponse)
 async def start_inference(
     file: UploadFile = File(...),
@@ -45,14 +65,7 @@ async def start_inference(
     # 保存上传文件
     temp_path = settings.temp_dir / file.filename
     try:
-        with open(temp_path, "wb") as f:
-            content = await file.read()
-            if len(content) > settings.max_upload_size:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"文件大小超过限制 ({settings.max_upload_size // 1024 // 1024}MB)"
-                )
-            f.write(content)
+        await _save_upload_file(file, temp_path, settings.max_upload_size)
 
         # 创建任务
         task_id = inference_service.create_task(file.filename, temp_path)

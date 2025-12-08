@@ -14,6 +14,7 @@ export const UPLOAD_CONFIG = {
   acceptTypes: ['.nii', '.nii.gz'],
   mimeTypes: ['application/gzip', 'application/x-gzip'],
 }
+export const UPLOAD_TIMEOUT_MS = 10 * 60 * 1000 // 10 分钟，适配大文件上传
 
 // 推理状态
 export const INFERENCE_STATUS = {
