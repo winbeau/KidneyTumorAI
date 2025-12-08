@@ -157,7 +157,7 @@ const formatSeconds = (secs: number) => {
             class="max-w-md mx-auto"
           />
           <NSpace justify="center">
-            <NButton type="primary" size="large" @click="startManualInference">
+            <NButton type="primary" size="large" strong @click="startManualInference">
               开始推理
             </NButton>
             <NButton size="large" @click="inferenceStore.reset">
@@ -249,7 +249,7 @@ const formatSeconds = (secs: number) => {
         </NAlert>
 
         <div class="text-center">
-          <NButton type="primary" @click="restart">
+          <NButton type="primary" strong @click="restart">
             重新上传
           </NButton>
         </div>

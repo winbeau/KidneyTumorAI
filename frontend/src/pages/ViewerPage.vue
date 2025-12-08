@@ -94,6 +94,7 @@ const downloadScreenshot = async () => {
             v-for="opt in viewOptions"
             :key="opt.value"
             :type="viewerStore.sliceType === opt.value ? 'primary' : 'default'"
+            :strong="viewerStore.sliceType === opt.value"
             @click="viewerStore.setSliceType(opt.value)"
           >
             <template #icon>
@@ -128,7 +129,7 @@ const downloadScreenshot = async () => {
           </div>
 
           <!-- 截图 -->
-          <NButton @click="downloadScreenshot">
+          <NButton type="primary" strong @click="downloadScreenshot">
             <template #icon>
               <div class="i-carbon-camera" />
             </template>

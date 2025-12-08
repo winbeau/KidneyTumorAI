@@ -114,7 +114,7 @@ const columns: DataTableColumns<HistoryRecord> = [
         actions.push(h(NButton, {
           size: 'small',
           type: 'primary',
-          ghost: true,
+          strong: true,
           onClick: () => handleStart(row.id),
         }, () => '开始推理'))
       }
