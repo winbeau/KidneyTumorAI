@@ -10,7 +10,7 @@ export const API_BASE_URL = '/api/v1'
 
 // 文件上传限制
 export const UPLOAD_CONFIG = {
-  maxSize: 500 * 1024 * 1024, // 500MB
+  maxSize: 1024 * 1024 * 1024, // 1GB
   acceptTypes: ['.nii', '.nii.gz'],
   mimeTypes: ['application/gzip', 'application/x-gzip'],
 }

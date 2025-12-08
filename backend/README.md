@@ -98,7 +98,7 @@ backend/
 │   └── temp/             # 临时文件
 ├── requirements.txt      # Python 依赖
 ├── .env                  # 环境配置
-└── run.py               # 启动脚本
+ └── run.py               # 启动脚本
 ```
 
 ## 注意事项
@@ -106,3 +106,4 @@ backend/
 1. **GPU 环境**: 推理需要 CUDA 环境，确保 MindSpore GPU 版本正确安装
 2. **单进程运行**: MindSpore GPU 不支持多进程，workers 必须设为 1
 3. **内存需求**: 推理大文件时需要充足的 GPU 显存和系统内存
+4. **大文件上传**: 后端默认放开到 1GB，如果前面有 Nginx/反向代理需要同步调大，例如在 `http` 或 `server` 块中增加 `client_max_body_size 1g;`，参考 `docs/nginx.conf.example`

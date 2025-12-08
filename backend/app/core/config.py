@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     default_checkpoint: str = "auto"  # auto -> 优先 model_best，缺失则用 model_final_checkpoint
 
     # 文件限制
-    max_upload_size: int = 500 * 1024 * 1024  # 500MB
+    max_upload_size: int = 1024 * 1024 * 1024  # 1GB
     allowed_extensions: list = [".nii", ".nii.gz"]
 
     class Config:
