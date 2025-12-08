@@ -83,11 +83,17 @@ const restart = () => {
 }
 
 // 格式化体积
-const formatVolume = (mm3: number) => {
+const formatVolume = (mm3?: number) => {
+  if (mm3 === undefined || mm3 === null) return '-'
   if (mm3 > 1000000) {
     return `${(mm3 / 1000000).toFixed(2)} cm³`
   }
   return `${mm3.toFixed(0)} mm³`
+}
+
+const formatProcessingTime = (seconds?: number) => {
+  if (seconds === undefined || seconds === null) return '-'
+  return `${seconds.toFixed(1)}s`
 }
 </script>
 
@@ -199,7 +205,7 @@ const formatVolume = (mm3: number) => {
           <NGi>
             <NStatistic label="处理时间">
               <template #default>
-                {{ inferenceStore.result.stats.processingTime.toFixed(1) }}s
+                {{ formatProcessingTime(inferenceStore.result.stats.processingTime) }}
               </template>
             </NStatistic>
           </NGi>

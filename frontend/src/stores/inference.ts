@@ -22,16 +22,18 @@ export const useInferenceStore = defineStore('inference', () => {
   const uploadProgress = ref(0)
   const waitingStart = ref(false)
 
+  const processingStatuses: InferenceStatus[] = [
+    INFERENCE_STATUS.UPLOADING,
+    INFERENCE_STATUS.QUEUED,
+    INFERENCE_STATUS.PROCESSING,
+  ]
+
   // 计算属性
   const isProcessing = computed(() => {
     if (status.value === INFERENCE_STATUS.QUEUED && waitingStart.value) {
       return false
     }
-    return [
-      INFERENCE_STATUS.UPLOADING,
-      INFERENCE_STATUS.QUEUED,
-      INFERENCE_STATUS.PROCESSING,
-    ].includes(status.value)
+    return processingStatuses.includes(status.value)
   })
   const isWaitingStart = computed(() => status.value === INFERENCE_STATUS.QUEUED && waitingStart.value)
 

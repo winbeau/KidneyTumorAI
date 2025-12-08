@@ -11,7 +11,7 @@ import {
   useDialog,
 } from 'naive-ui'
 import type { DataTableColumns, DataTableRowKey } from 'naive-ui'
-import { h, onMounted, ref } from 'vue'
+import { h, onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { getHistoryList, deleteHistoryRecord, batchDeleteHistory } from '@/api/history'
 import { startInferenceTask } from '@/api/inference'
@@ -47,7 +47,8 @@ const loadData = async () => {
 onMounted(loadData)
 
 // 格式化体积
-const formatVolume = (mm3: number) => {
+const formatVolume = (mm3?: number) => {
+  if (mm3 === undefined || mm3 === null) return '-'
   if (mm3 > 1000000) {
     return `${(mm3 / 1000000).toFixed(2)} cm³`
   }
@@ -108,7 +109,7 @@ const columns: DataTableColumns<HistoryRecord> = [
     width: 180,
     fixed: 'right',
     render: (row) => {
-      const actions = []
+      const actions: ReturnType<typeof h>[] = []
       if (row.status === 'queued') {
         actions.push(h(NButton, {
           size: 'small',
@@ -139,6 +140,16 @@ const columns: DataTableColumns<HistoryRecord> = [
 const viewResult = (id: string) => {
   router.push(`/viewer/${id}`)
 }
+
+const pagination = computed(() => ({
+  page: page.value,
+  pageSize: pageSize.value,
+  itemCount: total.value,
+  showSizePicker: true,
+  pageSizes: [10, 20, 50],
+  onChange: handlePageChange,
+  onUpdatePageSize: (size: number) => { pageSize.value = size; page.value = 1; loadData() },
+}))
 
 // 启动推理
 const handleStart = async (id: string) => {
@@ -230,15 +241,7 @@ const handleSelectionChange = (keys: DataTableRowKey[]) => {
       :loading="loading"
       :row-key="(row: HistoryRecord) => row.id"
       :checked-row-keys="selectedRowKeys"
-      :pagination="{
-        page,
-        pageSize,
-        itemCount: total,
-        showSizePicker: true,
-        pageSizes: [10, 20, 50],
-        onChange: handlePageChange,
-        onUpdatePageSize: (size: number) => { pageSize.value = size; page.value = 1; loadData() },
-      }"
+      :pagination="pagination"
       @update:checked-row-keys="handleSelectionChange"
     >
       <template #empty>

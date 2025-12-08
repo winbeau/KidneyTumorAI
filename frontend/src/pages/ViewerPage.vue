@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useViewerStore } from '@/stores/viewer'
 import { SLICE_TYPES, SEGMENTATION_COLORS } from '@/utils/constants'
 import { getInferenceResult } from '@/api/inference'
+import type { StatsInfo } from '@/api/types'
 
 const route = useRoute()
 const viewerStore = useViewerStore()
@@ -16,11 +17,7 @@ const isInitializing = ref(true)
 const initError = ref<string | null>(null)
 
 // 统计信息
-const stats = ref<{
-  kidneyVolume: number
-  tumorVolume: number
-  processingTime: number
-} | null>(null)
+const stats = ref<StatsInfo | null>(null)
 
 // 初始化
 onMounted(async () => {
@@ -62,7 +59,8 @@ const viewOptions = [
 ]
 
 // 格式化体积
-const formatVolume = (mm3: number) => {
+const formatVolume = (mm3?: number) => {
+  if (mm3 === undefined || mm3 === null) return '-'
   if (mm3 > 1000000) {
     return `${(mm3 / 1000000).toFixed(2)} cm³`
   }
@@ -199,7 +197,9 @@ const downloadScreenshot = async () => {
             <div>
               <div class="text-gray-500 text-sm">肿瘤/肾脏比例</div>
               <div class="text-lg font-bold">
-                {{ ((stats.tumorVolume / stats.kidneyVolume) * 100).toFixed(1) }}%
+                {{ stats?.kidneyVolume && stats?.tumorVolume
+                  ? ((stats.tumorVolume / stats.kidneyVolume) * 100).toFixed(1) + '%'
+                  : '-' }}
               </div>
             </div>
           </div>
