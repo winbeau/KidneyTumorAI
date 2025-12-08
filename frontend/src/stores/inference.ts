@@ -5,6 +5,7 @@ import { INFERENCE_STATUS } from '@/utils/constants'
 import {
   uploadInferenceFile,
   startInferenceTask as apiStartInferenceTask,
+  retryInferenceTask as apiRetryInferenceTask,
   getInferenceStatus,
   getInferenceResult,
   cancelInference as apiCancelInference,
@@ -115,6 +116,8 @@ export const useInferenceStore = defineStore('inference', () => {
     try {
       waitingStart.value = false
       status.value = INFERENCE_STATUS.QUEUED
+      error.value = null
+      result.value = null
       startPolling()
       startElapsedTimer()
       statusMessage.value = '排队中...'
@@ -122,6 +125,32 @@ export const useInferenceStore = defineStore('inference', () => {
     } catch (e: any) {
       status.value = INFERENCE_STATUS.FAILED
       error.value = e.message || '启动推理失败'
+      statusMessage.value = error.value
+      stopPolling()
+      stopElapsedTimer()
+      throw e
+    }
+  }
+
+  // 失败后重试推理（复用已上传文件）
+  async function retryInference() {
+    if (!taskId.value) {
+      throw new Error('没有任务可重试')
+    }
+    try {
+      waitingStart.value = false
+      status.value = INFERENCE_STATUS.QUEUED
+      progress.value = 0
+      uploadProgress.value = 0
+      result.value = null
+      error.value = null
+      statusMessage.value = '重新排队中...'
+      startPolling()
+      startElapsedTimer()
+      await apiRetryInferenceTask(taskId.value)
+    } catch (e: any) {
+      status.value = INFERENCE_STATUS.FAILED
+      error.value = e.message || '重试推理失败'
       statusMessage.value = error.value
       stopPolling()
       stopElapsedTimer()
@@ -219,6 +248,7 @@ export const useInferenceStore = defineStore('inference', () => {
     // 方法
     uploadFile,
     startInference,
+    retryInference,
     cancelInference,
     reset,
   }

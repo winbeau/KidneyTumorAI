@@ -82,6 +82,16 @@ const restart = () => {
   inferenceStore.reset()
 }
 
+// 失败后重试
+const retryFailed = async () => {
+  try {
+    await inferenceStore.retryInference()
+    message.success('已重新开始推理')
+  } catch (e: any) {
+    message.error(e.message || '重试推理失败')
+  }
+}
+
 // 格式化体积
 const formatVolume = (mm3?: number) => {
   if (mm3 === undefined || mm3 === null) return '-'
@@ -248,11 +258,14 @@ const formatSeconds = (secs: number) => {
           {{ inferenceStore.error || '未知错误' }}
         </NAlert>
 
-        <div class="text-center">
-          <NButton type="primary" strong @click="restart">
+        <NSpace justify="center">
+          <NButton type="primary" strong @click="retryFailed">
+            重新推理
+          </NButton>
+          <NButton @click="restart">
             重新上传
           </NButton>
-        </div>
+        </NSpace>
       </template>
     </NCard>
 

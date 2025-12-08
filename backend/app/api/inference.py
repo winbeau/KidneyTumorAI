@@ -84,8 +84,32 @@ async def start_inference_task(task_id: str):
     if task.status == TaskStatus.PROCESSING:
         raise HTTPException(status_code=400, detail="任务正在处理中")
 
-    # 重新标记排队状态
-    inference_service._update_task_status(task_id, TaskStatus.QUEUED, progress=0, message="排队中...")
+    # 重置状态并清理旧产物后启动
+    inference_service.prepare_task_for_run(task_id, message="排队中...")
+    inference_service.start_inference(task_id)
+    return InferenceStartResponse(
+        taskId=task_id,
+        status="queued",
+        estimatedTime=120,
+    )
+
+
+@router.post("/{task_id}/retry", response_model=InferenceStartResponse)
+async def retry_inference_task(task_id: str):
+    """
+    对已失败/已完成的任务重新发起推理，无需重新上传
+    """
+    task = inference_service.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    if task.status == TaskStatus.PROCESSING:
+        raise HTTPException(status_code=400, detail="任务正在处理中")
+
+    if task.status not in (TaskStatus.FAILED, TaskStatus.COMPLETED, TaskStatus.QUEUED):
+        raise HTTPException(status_code=400, detail=f"当前状态不支持重试: {task.status.value}")
+
+    inference_service.prepare_task_for_run(task_id, message="重新排队中...")
     inference_service.start_inference(task_id)
     return InferenceStartResponse(
         taskId=task_id,

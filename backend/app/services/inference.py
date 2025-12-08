@@ -60,6 +60,32 @@ class InferenceService:
         """启动异步推理"""
         executor.submit(self._run_inference, task_id)
 
+    def prepare_task_for_run(self, task_id: str, message: str = "排队中..."):
+        """清理旧产物，重置任务状态，支持失败后重新推理"""
+        task_dir = self.settings.result_dir / task_id
+
+        # 清理旧的输入/输出/分割文件，但保留 original.nii.gz
+        for sub_dir in ["input", "output"]:
+            shutil.rmtree(task_dir / sub_dir, ignore_errors=True)
+        seg_file = task_dir / "segmentation.nii.gz"
+        if seg_file.exists():
+            seg_file.unlink(missing_ok=True)
+
+        # 重置数据库状态
+        with get_sync_session() as session:
+            task = session.query(InferenceTask).filter_by(id=task_id).first()
+            if not task:
+                raise ValueError(f"Task {task_id} not found")
+
+            task.status = TaskStatus.QUEUED
+            task.progress = 0
+            task.message = message
+            task.kidney_volume = None
+            task.tumor_volume = None
+            task.processing_time = None
+            task.completed_at = None
+            task.segmentation_path = None
+
     def _run_inference(self, task_id: str):
         """执行推理 (在后台线程中运行)"""
         start_time = time.time()

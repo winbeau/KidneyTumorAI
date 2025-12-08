@@ -38,6 +38,13 @@ export function startInferenceTask(taskId: string): Promise<InferenceStartRespon
 }
 
 /**
+ * 失败/完成后的任务重试
+ */
+export function retryInferenceTask(taskId: string): Promise<InferenceStartResponse> {
+  return http.post(`/inference/${taskId}/retry`)
+}
+
+/**
  * 兼容函数：上传后立即启动推理
  */
 export async function startInference(
