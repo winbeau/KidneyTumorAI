@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NCard, NButton, NButtonGroup, NSlider, NSwitch, NSpace, NSpin, NAlert } from 'naive-ui'
+import { NCard, NButton, NButtonGroup, NSlider, NSwitch, NSpace, NSpin, NAlert, NTag, NProgress } from 'naive-ui'
 import { useRoute } from 'vue-router'
 import { useViewerStore } from '@/stores/viewer'
 import { SLICE_TYPES, SEGMENTATION_COLORS } from '@/utils/constants'
@@ -105,6 +105,20 @@ const downloadScreenshot = async () => {
 
         <!-- 控制选项 -->
         <NSpace align="center">
+          <!-- 分辨率状态 -->
+          <NTag v-if="viewerStore.isPreviewMode" type="warning" size="small">
+            <template #icon>
+              <div class="i-carbon-warning" />
+            </template>
+            预览模式
+          </NTag>
+          <NTag v-else-if="!viewerStore.isLoading && !viewerStore.isLoadingFullRes" type="success" size="small">
+            <template #icon>
+              <div class="i-carbon-checkmark" />
+            </template>
+            高清
+          </NTag>
+
           <!-- 叠加层控制 -->
           <div class="flex items-center gap-2">
             <span class="text-sm text-gray-500">分割叠加</span>
@@ -145,13 +159,33 @@ const downloadScreenshot = async () => {
         <NCard class="h-full" content-style="height: 100%; padding: 0;">
           <div class="niivue-container h-full relative">
             <!-- 加载中 -->
-            <div v-if="isInitializing" class="absolute inset-0 flex-center bg-gray-900">
+            <div v-if="isInitializing || viewerStore.isLoading" class="absolute inset-0 flex-center bg-gray-900 z-10">
               <div class="space-y-3 text-center text-gray-200">
                 <NSpin size="large" />
-                <div class="text-sm">下载影像中...</div>
+                <div class="text-sm">{{ viewerStore.isPreviewMode ? '加载预览版本...' : '下载影像中...' }}</div>
                 <div class="text-xs">
                   原始 {{ viewerStore.downloadProgress.original }}% / 分割 {{ viewerStore.downloadProgress.segmentation }}%
                 </div>
+              </div>
+            </div>
+
+            <!-- 后台加载高清版本的提示 -->
+            <div
+              v-if="viewerStore.isLoadingFullRes && !viewerStore.isLoading"
+              class="absolute bottom-4 left-4 right-4 z-10"
+            >
+              <div class="bg-gray-800/90 rounded-lg px-4 py-3 text-white">
+                <div class="flex items-center gap-3 mb-2">
+                  <NSpin size="small" />
+                  <span class="text-sm">正在加载高清版本...</span>
+                </div>
+                <NProgress
+                  type="line"
+                  :percentage="Math.round((viewerStore.downloadProgress.original + viewerStore.downloadProgress.segmentation) / 2)"
+                  :show-indicator="false"
+                  :height="4"
+                  status="info"
+                />
               </div>
             </div>
 
@@ -217,6 +251,10 @@ const downloadScreenshot = async () => {
             <div class="flex-between">
               <span class="text-gray-500">尺寸</span>
               <span>{{ viewerStore.dimensions.x }} × {{ viewerStore.dimensions.y }} × {{ viewerStore.dimensions.z }}</span>
+            </div>
+            <div v-if="viewerStore.isPreviewMode" class="flex-between text-yellow-500">
+              <span>分辨率</span>
+              <span>预览 (1/4)</span>
             </div>
           </div>
         </NCard>

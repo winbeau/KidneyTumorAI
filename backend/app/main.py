@@ -3,6 +3,7 @@ KidneyTumorAI 后端主应用
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.core.config import get_settings
 from app.core.database import init_db
@@ -19,6 +20,10 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# GZip 压缩中间件 - 对 JSON 响应等非压缩内容有效
+# 注意: .nii.gz 文件已经压缩，不会重复压缩
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 # CORS 配置
 app.add_middleware(
     CORSMiddleware,
@@ -26,6 +31,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Preview", "X-Preview-Factor"],  # 暴露自定义响应头
 )
 
 

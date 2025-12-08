@@ -28,6 +28,10 @@ export const useViewerStore = defineStore('viewer', () => {
   const downloadProgress = ref<{ original: number; segmentation: number }>({ original: 0, segmentation: 0 })
   const objectUrls = ref<string[]>([])
 
+  // 渐进式加载状态
+  const isPreviewMode = ref(false)
+  const isLoadingFullRes = ref(false)
+
   // 初始化 NiiVue
   async function initNiiVue(canvas: HTMLCanvasElement) {
     try {
@@ -80,35 +84,89 @@ export const useViewerStore = defineStore('viewer', () => {
     return buffer.buffer
   }
 
-  // 并行加载原始影像与分割
+  // 渐进式加载：先预览后高清
   async function loadCase(originalUrl: string, segmentationUrl: string) {
     if (!nv.value) throw new Error('NiiVue not initialized')
     isLoading.value = true
     loadError.value = null
     downloadProgress.value = { original: 0, segmentation: 0 }
+    isPreviewMode.value = false
+    isLoadingFullRes.value = false
+
+    // 清理旧的 object URLs
+    objectUrls.value.forEach((u) => URL.revokeObjectURL(u))
+    objectUrls.value = []
 
     try {
-      const [origBuffer, segBuffer] = await Promise.all([
+      // 构建预览 URL（添加 preview=true 参数）
+      const previewOriginalUrl = `${originalUrl}${originalUrl.includes('?') ? '&' : '?'}preview=true&factor=4`
+      const previewSegUrl = `${segmentationUrl}${segmentationUrl.includes('?') ? '&' : '?'}preview=true&factor=4`
+
+      // 第一阶段：快速加载预览版本
+      console.log('加载预览版本...')
+      const [previewOrigBuffer, previewSegBuffer] = await Promise.all([
+        fetchNiftiWithProgress(previewOriginalUrl, 'original'),
+        fetchNiftiWithProgress(previewSegUrl, 'segmentation'),
+      ])
+
+      const previewOrigUrlObj = URL.createObjectURL(new Blob([previewOrigBuffer]))
+      const previewSegUrlObj = URL.createObjectURL(new Blob([previewSegBuffer]))
+      objectUrls.value = [previewOrigUrlObj, previewSegUrlObj]
+
+      const previewVolumes: any[] = [
+        { url: previewOrigUrlObj },
+        { url: previewSegUrlObj, colormap: 'actc', opacity: overlayOpacity.value },
+      ]
+
+      await nv.value.loadVolumes(previewVolumes)
+      isPreviewMode.value = true
+      isLoading.value = false
+
+      // 获取维度信息（预览版本也可以获取）
+      const vol = nv.value.volumes[0]
+      if (vol) {
+        const [, x = 0, y = 0, z = 0] = vol.dims
+        // 预览版本维度需要乘以 factor 来获取真实维度
+        dimensions.value = { x: x * 4, y: y * 4, z: z * 4 }
+        sliceIndices.value = {
+          axial: Math.floor((z * 4) / 2),
+          coronal: Math.floor((y * 4) / 2),
+          sagittal: Math.floor((x * 4) / 2),
+        }
+      }
+
+      // 第二阶段：后台加载高分辨率版本
+      console.log('后台加载高分辨率版本...')
+      isLoadingFullRes.value = true
+
+      // 使用 requestIdleCallback 或 setTimeout 延迟加载，避免阻塞 UI
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      const [fullOrigBuffer, fullSegBuffer] = await Promise.all([
         fetchNiftiWithProgress(originalUrl, 'original'),
         fetchNiftiWithProgress(segmentationUrl, 'segmentation'),
       ])
 
-      // 使用 Blob URL 让 NiiVue 以 URL 方式加载，兼容当前版本类型定义
-      const origUrlObj = URL.createObjectURL(new Blob([origBuffer]))
-      const segUrlObj = URL.createObjectURL(new Blob([segBuffer]))
-      objectUrls.value = [origUrlObj, segUrlObj]
+      // 创建新的 Blob URLs
+      const fullOrigUrlObj = URL.createObjectURL(new Blob([fullOrigBuffer]))
+      const fullSegUrlObj = URL.createObjectURL(new Blob([fullSegBuffer]))
 
-      const volumes: any[] = [
-        { url: origUrlObj },
-        { url: segUrlObj, colormap: 'actc', opacity: overlayOpacity.value },
+      // 清理预览版本的 URLs
+      objectUrls.value.forEach((u) => URL.revokeObjectURL(u))
+      objectUrls.value = [fullOrigUrlObj, fullSegUrlObj]
+
+      const fullVolumes: any[] = [
+        { url: fullOrigUrlObj },
+        { url: fullSegUrlObj, colormap: 'actc', opacity: overlayOpacity.value },
       ]
 
-      await nv.value.loadVolumes(volumes)
+      // 替换为高分辨率版本
+      await nv.value.loadVolumes(fullVolumes)
 
-      // 获取维度信息
-      const vol = nv.value.volumes[0]
-      if (vol) {
-        const [, x = 0, y = 0, z = 0] = vol.dims
+      // 更新真实维度
+      const fullVol = nv.value.volumes[0]
+      if (fullVol) {
+        const [, x = 0, y = 0, z = 0] = fullVol.dims
         dimensions.value = { x, y, z }
         sliceIndices.value = {
           axial: Math.floor(z / 2),
@@ -116,11 +174,16 @@ export const useViewerStore = defineStore('viewer', () => {
           sagittal: Math.floor(x / 2),
         }
       }
+
+      isPreviewMode.value = false
+      isLoadingFullRes.value = false
+      console.log('高分辨率版本加载完成')
+
     } catch (e: any) {
       loadError.value = '加载影像失败: ' + e.message
-      throw e
-    } finally {
       isLoading.value = false
+      isLoadingFullRes.value = false
+      throw e
     }
   }
 
@@ -178,6 +241,8 @@ export const useViewerStore = defineStore('viewer', () => {
     }
     objectUrls.value.forEach((u) => URL.revokeObjectURL(u))
     objectUrls.value = []
+    isPreviewMode.value = false
+    isLoadingFullRes.value = false
   }
 
   return {
@@ -190,6 +255,8 @@ export const useViewerStore = defineStore('viewer', () => {
     isLoading,
     loadError,
     downloadProgress,
+    isPreviewMode,
+    isLoadingFullRes,
     initNiiVue,
     loadCase,
     setSliceType,
